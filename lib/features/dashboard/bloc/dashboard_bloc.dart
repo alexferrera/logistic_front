@@ -1,11 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/datasources/dasboard_repository.dart';
+import '../data/models/customer_dto.dart';
 import 'dasboard_event.dart';
 import 'dashboard_state.dart';
 
 class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final DashboardRepository repository;
+  List<CustomerDTO>? _cachedCustomers;
+
 
   DashboardBloc({required this.repository}) : super(DashboardInitial()) {
     on<LoadPendingOrders>((event, emit) async {
@@ -50,32 +53,43 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     });
 
     on<AddCustomerEvent>((event, emit) async {
-      emit(DashboardLoading());
       try {
         await repository.createCustomer(event.customer);
 
-        emit(DashboardInitial());
-      } on DioException catch (e) {
-        final msg = e.response?.data?["message"]?.toString() ?? e.toString();
+        final customers = await repository.getCustomers(event.customer.tenantId);
 
-        if (msg.contains("unique")) {
-          emit(DashboardError(message: "El teléfono ya está registrado"));
-        } else {
-          emit(DashboardError(message: msg));
-        }
-      }
-    });
-
-    on<LoadCustomers>((event, emit) async {
-      emit(DashboardLoading());
-
-      try {
-        final customers = await repository.getCustomers(event.tenantId);
+        _cachedCustomers = customers;
 
         emit(DashboardCustomersLoaded(customers: customers));
       } catch (e) {
         emit(DashboardError(message: e.toString()));
       }
+    });
+
+    on<LoadCustomers>((event, emit) async {
+
+      if (_cachedCustomers != null) {
+        emit(DashboardCustomersLoaded(customers: _cachedCustomers!));
+        return;
+      }
+
+      emit(DashboardLoading());
+
+      try {
+        final customers = await repository.getCustomers(event.tenantId);
+
+        _cachedCustomers = customers;
+
+        emit(DashboardCustomersLoaded(customers: customers));
+      } catch (e) {
+        emit(DashboardError(message: e.toString()));
+      }
+    });
+
+    on<RefreshCustomersRequested>((event, emit) {
+      _cachedCustomers = null;
+
+      add(LoadCustomers(event.tenantId));
     });
 
     on<ClearDashboard>((event, emit) {

@@ -62,7 +62,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (_tabController.index == 0) {
       _loadOrders();
     } else {
-      _loadCustomers();
+      final authState = context.read<AuthBloc>().state;
+      if (authState is LoginSuccess) {
+        context.read<DashboardBloc>().add(
+          RefreshCustomersRequested(authState.user.tenantId),
+        );
+      }
     }
   }
 

@@ -38,3 +38,9 @@ class LoadCustomers extends DashboardEvent {
 
   LoadCustomers(this.tenantId);
 }
+
+class RefreshCustomersRequested extends DashboardEvent {
+  final int tenantId;
+
+  RefreshCustomersRequested(this.tenantId);
+}
