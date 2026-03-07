@@ -1,0 +1,22 @@
+
+import '../models/dashboard_order.dart';
+import '../models/today_stats.dart';
+import 'dashboard_remote.dart';
+
+class DashboardRepository {
+  final DashboardRemoteDatasource remote;
+
+  DashboardRepository({required this.remote});
+
+  Future<List<OrderModel>> getPendingOrders(int tenantId) {
+    return remote.getPendingOrders(tenantId);
+  }
+
+  Future<void> completeOrder(int tenantId, int orderId) {
+    return remote.completeOrder(tenantId, orderId);
+  }
+
+  Future<TodayStatsModel> getTodayStats(int tenantId) {
+    return remote.getTodayStats(tenantId);
+  }
+}
