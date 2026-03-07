@@ -17,11 +17,15 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
-    _loadOrders();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadOrders(); // carga inicial de pedidos
   }
 
   void _loadOrders() {
@@ -30,6 +34,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context.read<DashboardBloc>().add(
         LoadPendingOrders(authState.user.tenantId),
       );
+    }
+  }
+
+  void _loadCustomers() {
+    // final authState = context.read<AuthBloc>().state;
+    // if (authState is LoginSuccess) {
+      // context.read<DashboardBloc>().add(
+      //   LoadCustomers(authState.user.tenantId),
+      // );
+    // }
+  }
+
+  void _reloadCurrentTab() {
+    if (_tabController.index == 0) {
+      _loadOrders(); // Tab Pedidos
+    } else {
+      _loadCustomers(); // Tab Clientes
     }
   }
 
@@ -48,7 +69,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String formatElapsedTime(DateTime createdAt) {
     final diff = DateTime.now().difference(createdAt);
-
     if (diff.inSeconds < 60) {
       return "Hace ${diff.inSeconds} seg";
     } else if (diff.inMinutes < 60) {
@@ -103,16 +123,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     address: addressController.text,
                     tenantId: authState.user.tenantId,
                   );
-
                   context.read<DashboardBloc>().add(
                     AddCustomerEvent(customer: customer),
                   );
-
                   Navigator.pop(context);
                 }
               },
               child: const Text("Guardar"),
-            )
+            ),
           ],
         );
       },
@@ -123,334 +141,356 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final authState = context.read<AuthBloc>().state;
     if (authState is LoginSuccess) {
       context.read<DashboardBloc>().add(
-        CompleteOrderEvent(tenantId: authState.user.tenantId, orderId: orderId),
+        CompleteOrderEvent(
+            tenantId: authState.user.tenantId, orderId: orderId),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: () {
-            context.read<DashboardBloc>().add(ClearDashboard());
-            context.read<AuthBloc>().add(LogoutRequested());
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              context.read<DashboardBloc>().add(ClearDashboard());
+              context.read<AuthBloc>().add(LogoutRequested());
 
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (route) => false,
-            );
-          },
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+              );
+            },
+          ),
+          title: const Text("Panel Administrador"),
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: "Pedidos", icon: Icon(Icons.local_drink)),
+              Tab(text: "Clientes", icon: Icon(Icons.person)),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _reloadCurrentTab,
+            ),
+          ],
         ),
-        title: const Text("Panel Administrador"),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadOrders),
-        ],
-      ),
-
-      body: SafeArea(
-        child: Column(
+        body: TabBarView(
+          controller: _tabController,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _showAddCustomerDialog(context),
-                  icon: const Icon(Icons.person_add),
-                  label: const Text("Agregar Nuevo Cliente"),
+            // TAB PEDIDOS
+            Column(
+              children: [
+                BlocBuilder<DashboardBloc, DashboardState>(
+                  builder: (context, state) {
+                    if (state is DashboardLoaded) {
+                      return _buildTodayStats(
+                          state.bottlesDelivered, state.ordersCompleted);
+                    }
+                    return _buildTodayStats(0, 0);
+                  },
                 ),
-              ),
-            ),
-
-            BlocBuilder<DashboardBloc, DashboardState>(
-              builder: (context, state) {
-                if (state is DashboardLoaded) {
-                  return _buildTodayStats(
-                    state.bottlesDelivered,
-                    state.ordersCompleted,
-                  );
-                }
-
-                return _buildTodayStats(0, 0);
-              },
-            ),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Pedidos Pendientes",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                Padding(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Pedidos Pendientes",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      BlocBuilder<DashboardBloc, DashboardState>(
+                        builder: (context, state) {
+                          if (state is DashboardLoaded && state.orders.isNotEmpty) {
+                            final totalBotellones = state.orders.fold<int>(
+                              0,
+                                  (sum, order) => sum + order.quantity,
+                            );
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade100.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "Tienes $totalBotellones botellones pendientes en ${state.orders.length} pedidos",
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  BlocBuilder<DashboardBloc, DashboardState>(
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: BlocBuilder<DashboardBloc, DashboardState>(
                     builder: (context, state) {
-                      if (state is DashboardLoaded && state.orders.isNotEmpty) {
-                        final totalBotellones = state.orders.fold<int>(
-                          0,
-                          (sum, order) => sum + order.quantity,
+                      if (state is DashboardLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
                         );
-                        return Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            "Tienes $totalBotellones botellones pendientes en ${state.orders.length} pedidos",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                      }
+                      if (state is DashboardError) {
+                        return Center(child: Text("Error: ${state.message}"));
+                      }
+                      if (state is DashboardLoaded) {
+                        final orders = state.orders;
+                        if (orders.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(
+                                  Icons.inbox,
+                                  size: 80,
+                                  color: Colors.grey,
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  "No hay pedidos pendientes",
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          );
+                        }
+                        return ListView.builder(
+                          itemCount: orders.length,
+                          itemBuilder: (context, index) {
+                            final order = orders[index];
+                            final elapsed = formatElapsedTime(order.createdAt);
+                            return _buildOrderCard(order, elapsed);
+                          },
                         );
                       }
                       return const SizedBox.shrink();
                     },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
 
-            const SizedBox(height: 8),
-
-            Expanded(
-              child: BlocBuilder<DashboardBloc, DashboardState>(
-                builder: (context, state) {
-                  if (state is DashboardLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (state is DashboardError) {
-                    return Center(child: Text("Error: ${state.message}"));
-                  }
-
-                  if (state is DashboardLoaded) {
-                    final orders = state.orders;
-
-                    if (orders.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.inbox, size: 80, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text(
-                              "No hay pedidos pendientes",
-                              style: TextStyle(
-                                fontSize: 20,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    return ListView.builder(
-                      itemCount: orders.length,
-                      itemBuilder: (context, index) {
-                        final order = orders[index];
-                        final elapsed = formatElapsedTime(order.createdAt);
-
-                        return Card(
-                          color: getOrderColor(order.createdAt),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 4,
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      order.customerName,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.blue.shade50,
-                                          ),
-                                          child: const Icon(
-                                            Icons.local_drink,
-                                            color: Colors.blue,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "${order.quantity} botellones",
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.black87,
-                                            height: 1,
-                                            letterSpacing: 0.2,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.red.shade50,
-                                          ),
-                                          child: const Icon(
-                                            Icons.location_on,
-                                            color: Colors.red,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            order.address,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.black87,
-                                              height: 1,
-                                              letterSpacing: 0.2,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.green.shade50,
-                                          ),
-                                          child: const Icon(
-                                            Icons.phone,
-                                            color: Colors.green,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          order.phone,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.black87,
-                                            height: 1,
-                                            letterSpacing: 0.2,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50.withOpacity(0.2),
-                                  borderRadius: const BorderRadius.only(
-                                    bottomLeft: Radius.circular(16),
-                                    bottomRight: Radius.circular(16),
-                                  ),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.access_time,
-                                          color: Colors.blue,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          elapsed,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blue,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () => _completeOrder(order.id),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 8,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      child: const Text("Entregado"),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  }
-
-                  return const SizedBox.shrink();
-                },
-              ),
+            // TAB CLIENTES
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showAddCustomerDialog(context),
+                      icon: const Icon(Icons.person_add),
+                      label: const Text("Agregar Nuevo Cliente"),
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  child: Center(child: Text("Aquí se listarán los clientes")),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
-}
 
+  Widget _buildOrderCard(order, String elapsed) {
+    return Card(
+      color: getOrderColor(order.createdAt),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  order.customerName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.blue.shade50,
+                      ),
+                      child: const Icon(
+                        Icons.local_drink,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "${order.quantity} botellones",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                        height: 1,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.red.shade50,
+                      ),
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        order.address,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                          height: 1,
+                          letterSpacing: 0.2,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.green.shade50,
+                      ),
+                      child: const Icon(
+                        Icons.phone,
+                        color: Colors.green,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      order.phone,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                        height: 1,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50.withOpacity(0.2),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.access_time,
+                      color: Colors.blue,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      elapsed,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                ElevatedButton(
+                  onPressed: () => _completeOrder(order.id),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(fontSize: 14),
+                  ),
+                  child: const Text(
+                    "Entregado",
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 Widget _buildTodayStats(int bottles, int orders) {
   return Padding(
@@ -464,28 +504,21 @@ Widget _buildTodayStats(int bottles, int orders) {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.local_drink,
-            color: Colors.green,
-            size: 30,
-          ),
+          const Icon(Icons.local_drink, color: Colors.green, size: 30),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 "Entregado hoy",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               Text(
                 "$bottles botellones • $orders pedidos",
                 style: const TextStyle(fontSize: 13),
               ),
             ],
-          )
+          ),
         ],
       ),
     ),
