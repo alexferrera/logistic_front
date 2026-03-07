@@ -32,3 +32,9 @@ class AddCustomerEvent extends DashboardEvent {
 
   AddCustomerEvent({required this.customer});
 }
+
+class LoadCustomers extends DashboardEvent {
+  final int tenantId;
+
+  LoadCustomers(this.tenantId);
+}

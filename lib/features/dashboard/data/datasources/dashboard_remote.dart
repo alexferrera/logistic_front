@@ -50,4 +50,12 @@ class DashboardRemoteDatasource {
       },
     );
   }
+
+  Future<List<CustomerDTO>> getCustomers(int tenantId) async {
+    final response = await dio.get("/tenants/$tenantId/customers");
+
+    final List data = response.data["result"];
+
+    return data.map((e) => CustomerDTO.fromJson(e)).toList();
+  }
 }

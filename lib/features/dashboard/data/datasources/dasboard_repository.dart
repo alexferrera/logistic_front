@@ -1,4 +1,3 @@
-
 import '../models/customer_dto.dart';
 import '../models/dashboard_order.dart';
 import '../models/today_stats.dart';
@@ -23,5 +22,9 @@ class DashboardRepository {
 
   Future<void> createCustomer(CustomerDTO customer) {
     return remote.createCustomer(customer);
+  }
+
+  Future<List<CustomerDTO>> getCustomers(int tenantId) {
+    return remote.getCustomers(tenantId);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logistiQ/features/auth/bloc/auth_event.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/view/login_screen.dart';
 import '../bloc/dasboard_event.dart';
@@ -24,8 +25,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void initState() {
     super.initState();
+
     _tabController = TabController(length: 2, vsync: this);
-    _loadOrders(); // carga inicial de pedidos
+
+    _loadOrders();
+
+    _tabController.addListener(() {
+      if (_tabController.index == 0) {
+        _loadOrders();
+      } else {
+        _loadCustomers();
+      }
+    });
   }
 
   void _loadOrders() {
@@ -38,19 +49,20 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _loadCustomers() {
-    // final authState = context.read<AuthBloc>().state;
-    // if (authState is LoginSuccess) {
-      // context.read<DashboardBloc>().add(
-      //   LoadCustomers(authState.user.tenantId),
-      // );
-    // }
+    final authState = context.read<AuthBloc>().state;
+
+    if (authState is LoginSuccess) {
+      context.read<DashboardBloc>().add(
+        LoadCustomers(authState.user.tenantId),
+      );
+    }
   }
 
   void _reloadCurrentTab() {
     if (_tabController.index == 0) {
-      _loadOrders(); // Tab Pedidos
+      _loadOrders();
     } else {
-      _loadCustomers(); // Tab Clientes
+      _loadCustomers();
     }
   }
 
@@ -141,8 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final authState = context.read<AuthBloc>().state;
     if (authState is LoginSuccess) {
       context.read<DashboardBloc>().add(
-        CompleteOrderEvent(
-            tenantId: authState.user.tenantId, orderId: orderId),
+        CompleteOrderEvent(tenantId: authState.user.tenantId, orderId: orderId),
       );
     }
   }
@@ -162,7 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
+                (route) => false,
               );
             },
           ),
@@ -191,14 +202,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                   builder: (context, state) {
                     if (state is DashboardLoaded) {
                       return _buildTodayStats(
-                          state.bottlesDelivered, state.ordersCompleted);
+                        state.bottlesDelivered,
+                        state.ordersCompleted,
+                      );
                     }
                     return _buildTodayStats(0, 0);
                   },
                 ),
                 Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -212,10 +227,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const SizedBox(height: 4),
                       BlocBuilder<DashboardBloc, DashboardState>(
                         builder: (context, state) {
-                          if (state is DashboardLoaded && state.orders.isNotEmpty) {
+                          if (state is DashboardLoaded &&
+                              state.orders.isNotEmpty) {
                             final totalBotellones = state.orders.fold<int>(
                               0,
-                                  (sum, order) => sum + order.quantity,
+                              (sum, order) => sum + order.quantity,
                             );
                             return Container(
                               width: double.infinity,
@@ -245,9 +261,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: BlocBuilder<DashboardBloc, DashboardState>(
                     builder: (context, state) {
                       if (state is DashboardLoading) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
+                        return const Center(child: CircularProgressIndicator());
                       }
                       if (state is DashboardError) {
                         return Center(child: Text("Error: ${state.message}"));
@@ -259,11 +273,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [
-                                Icon(
-                                  Icons.inbox,
-                                  size: 80,
-                                  color: Colors.grey,
-                                ),
+                                Icon(Icons.inbox, size: 80, color: Colors.grey),
                                 SizedBox(height: 16),
                                 Text(
                                   "No hay pedidos pendientes",
@@ -309,9 +319,41 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                   ),
                 ),
-                const Expanded(
-                  child: Center(child: Text("Aquí se listarán los clientes")),
-                ),
+                Expanded(
+                  child: BlocBuilder<DashboardBloc, DashboardState>(
+                    builder: (context, state) {
+
+                      if (state is DashboardLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (state is DashboardCustomersLoaded) {
+
+                        if (state.customers.isEmpty) {
+                          return const Center(
+                            child: Text("No hay clientes registrados"),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: state.customers.length,
+                          itemBuilder: (context, index) {
+
+                            final customer = state.customers[index];
+
+                            return _buildCustomerCard(
+                              name: customer.name,
+                              phone: customer.phone,
+                              address: customer.address,
+                            );
+                          },
+                        );
+                      }
+
+                      return const Center(child: Text("Cargando clientes..."));
+                    },
+                  ),
+                )
               ],
             ),
           ],
@@ -323,9 +365,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildOrderCard(order, String elapsed) {
     return Card(
       color: getOrderColor(order.createdAt),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 4,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(
@@ -448,11 +488,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.access_time,
-                      color: Colors.blue,
-                      size: 18,
-                    ),
+                    const Icon(Icons.access_time, color: Colors.blue, size: 18),
                     const SizedBox(width: 4),
                     Text(
                       elapsed,
@@ -469,7 +505,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -477,10 +515,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   child: const Text(
                     "Entregado",
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.white,
-                    ),
+                    style: TextStyle(fontSize: 15, color: Colors.white),
                   ),
                 ),
               ],
@@ -523,4 +558,156 @@ Widget _buildTodayStats(int bottles, int orders) {
       ),
     ),
   );
+}
+
+Widget _buildCustomerCard({
+  required String name,
+  required String phone,
+  required String address,
+}) {
+  return Card(
+    elevation: 3,
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          /// HEADER CLIENTE
+          Row(
+            children: [
+              /// AVATAR
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.blue.shade100,
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : "?",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              /// NOMBRE + TELEFONO
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 3),
+
+                    GestureDetector(
+                      onTap: () => _callCustomer(phone),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.phone,
+                            size: 16,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            phone,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.green,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          /// DIRECCION
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on,
+                size: 18,
+                color: Colors.red,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  address,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          /// ACCIONES
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+
+              /// BOTON LLAMAR
+              ElevatedButton.icon(
+                onPressed: () => _callCustomer(phone),
+                icon: const Icon(Icons.phone, size: 18),
+                label: const Text("Llamar"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              /// EDITAR
+              IconButton(
+                onPressed: () {
+                  // editar cliente
+                },
+                icon: const Icon(Icons.edit),
+                tooltip: "Editar cliente",
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
+Future<void> _callCustomer(String phone) async {
+  final Uri url = Uri(scheme: 'tel', path: phone);
+
+  if (await canLaunchUrl(url)) {
+    await launchUrl(url);
+  }
 }

@@ -10,4 +10,13 @@ class CustomerDTO {
     required this.address,
     required this.tenantId,
   });
+
+  factory CustomerDTO.fromJson(Map<String, dynamic> json) {
+    return CustomerDTO(
+      name: json["name"],
+      phone: json["phone"],
+      address: json["address"],
+      tenantId: json["tenant_id"],
+    );
+  }
 }

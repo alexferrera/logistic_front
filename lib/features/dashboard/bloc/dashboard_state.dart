@@ -1,3 +1,4 @@
+import '../data/models/customer_dto.dart';
 import '../data/models/dashboard_order.dart';
 
 abstract class DashboardState {}
@@ -22,4 +23,10 @@ class DashboardError extends DashboardState {
   final String message;
 
   DashboardError({required this.message});
+}
+
+class DashboardCustomersLoaded extends DashboardState {
+  final List<CustomerDTO> customers;
+
+  DashboardCustomersLoaded({required this.customers});
 }

@@ -66,6 +66,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       }
     });
 
+    on<LoadCustomers>((event, emit) async {
+      emit(DashboardLoading());
+
+      try {
+        final customers = await repository.getCustomers(event.tenantId);
+
+        emit(DashboardCustomersLoaded(customers: customers));
+      } catch (e) {
+        emit(DashboardError(message: e.toString()));
+      }
+    });
+
     on<ClearDashboard>((event, emit) {
       emit(DashboardInitial());
     });
