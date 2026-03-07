@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/datasources/dasboard_repository.dart';
 import 'dasboard_event.dart';
@@ -45,6 +46,23 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         );
       } catch (e) {
         emit(DashboardError(message: e.toString()));
+      }
+    });
+
+    on<AddCustomerEvent>((event, emit) async {
+      emit(DashboardLoading());
+      try {
+        await repository.createCustomer(event.customer);
+
+        emit(DashboardInitial());
+      } on DioException catch (e) {
+        final msg = e.response?.data?["message"]?.toString() ?? e.toString();
+
+        if (msg.contains("unique")) {
+          emit(DashboardError(message: "El teléfono ya está registrado"));
+        } else {
+          emit(DashboardError(message: msg));
+        }
       }
     });
 

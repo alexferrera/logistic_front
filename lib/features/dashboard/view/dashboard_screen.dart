@@ -8,6 +8,7 @@ import '../bloc/dashboard_bloc.dart';
 import '../bloc/dashboard_state.dart';
 import '../../auth/bloc/auth_state.dart';
 import '../../auth/bloc/auth_bloc.dart';
+import '../data/models/customer_dto.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -94,11 +95,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                print("Nuevo cliente:");
-                Navigator.pop(context);
+                final authState = context.read<AuthBloc>().state;
+                if (authState is LoginSuccess) {
+                  final customer = CustomerDTO(
+                    name: nameController.text,
+                    phone: phoneController.text,
+                    address: addressController.text,
+                    tenantId: authState.user.tenantId,
+                  );
+
+                  context.read<DashboardBloc>().add(
+                    AddCustomerEvent(customer: customer),
+                  );
+
+                  Navigator.pop(context);
+                }
               },
               child: const Text("Guardar"),
-            ),
+            )
           ],
         );
       },

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../models/customer_dto.dart';
 import '../models/dashboard_order.dart';
 import '../models/today_stats.dart';
 
@@ -36,5 +37,17 @@ class DashboardRemoteDatasource {
     final data = response.data["result"];
 
     return TodayStatsModel.fromJson(data);
+  }
+
+  Future<void> createCustomer(CustomerDTO customer) async {
+    await dio.post(
+      "/customers",
+      data: {
+        "name": customer.name,
+        "phone": customer.phone,
+        "address": customer.address,
+        "tenant_id": customer.tenantId,
+      },
+    );
   }
 }

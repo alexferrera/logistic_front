@@ -1,3 +1,5 @@
+import '../data/models/customer_dto.dart';
+
 abstract class DashboardEvent {}
 
 class LoadPendingOrders extends DashboardEvent {
@@ -23,4 +25,10 @@ class LoadTodayStats extends DashboardEvent {
   final int tenantId;
 
   LoadTodayStats(this.tenantId);
+}
+
+class AddCustomerEvent extends DashboardEvent {
+  final CustomerDTO customer;
+
+  AddCustomerEvent({required this.customer});
 }
