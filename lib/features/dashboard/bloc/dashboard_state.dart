@@ -30,3 +30,15 @@ class DashboardCustomersLoaded extends DashboardState {
 
   DashboardCustomersLoaded({required this.customers});
 }
+
+class CustomerRemoved extends DashboardState {
+  final String message;
+  CustomerRemoved(this.message);
+}
+
+class RemoveCustomerFailed extends DashboardState {
+  final String message;
+  RemoveCustomerFailed(this.message);
+}
+
+class RemovingCustomer extends DashboardState {}

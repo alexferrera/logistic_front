@@ -1,3 +1,4 @@
+import '../../../auth/data/models/api_response.dart';
 import '../models/customer_dto.dart';
 import '../models/dashboard_order.dart';
 import '../models/today_stats.dart';
@@ -26,5 +27,9 @@ class DashboardRepository {
 
   Future<List<CustomerDTO>> getCustomers(int tenantId) {
     return remote.getCustomers(tenantId);
+  }
+
+  Future<ApiResponse> removeCustomer(int tenantId, int userId) {
+    return remote.removeCustomer(tenantId, userId);
   }
 }

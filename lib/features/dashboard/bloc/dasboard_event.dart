@@ -20,7 +20,6 @@ class CompleteOrderEvent extends DashboardEvent {
 
 class ClearDashboard extends DashboardEvent {}
 
-
 class LoadTodayStats extends DashboardEvent {
   final int tenantId;
 
@@ -43,4 +42,11 @@ class RefreshCustomersRequested extends DashboardEvent {
   final int tenantId;
 
   RefreshCustomersRequested(this.tenantId);
+}
+
+class RemoveCustomerEvent extends DashboardEvent {
+  final int tenantId;
+  final int userId;
+
+  RemoveCustomerEvent({required this.tenantId, required this.userId});
 }

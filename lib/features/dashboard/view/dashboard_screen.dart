@@ -52,9 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final authState = context.read<AuthBloc>().state;
 
     if (authState is LoginSuccess) {
-      context.read<DashboardBloc>().add(
-        LoadCustomers(authState.user.tenantId),
-      );
+      context.read<DashboardBloc>().add(LoadCustomers(authState.user.tenantId));
     }
   }
 
@@ -307,7 +305,6 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
 
-            // TAB CLIENTES
             Column(
               children: [
                 Padding(
@@ -327,13 +324,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Expanded(
                   child: BlocBuilder<DashboardBloc, DashboardState>(
                     builder: (context, state) {
-
                       if (state is DashboardLoading) {
                         return const Center(child: CircularProgressIndicator());
                       }
 
                       if (state is DashboardCustomersLoaded) {
-
                         if (state.customers.isEmpty) {
                           return const Center(
                             child: Text("No hay clientes registrados"),
@@ -343,13 +338,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                         return ListView.builder(
                           itemCount: state.customers.length,
                           itemBuilder: (context, index) {
-
                             final customer = state.customers[index];
 
                             return _buildCustomerCard(
-                              name: customer.name,
-                              phone: customer.phone,
-                              address: customer.address,
+                              customer: customer,
+                              onDelete: (id) {
+                                final authState = context.read<AuthBloc>().state;
+                                if (authState is LoginSuccess) {
+                                  context.read<DashboardBloc>().add(
+                                    RemoveCustomerEvent(
+                                      tenantId: authState.user.tenantId,
+                                      userId: id,
+                                    ),
+                                  );
+                                }
+                              },
                             );
                           },
                         );
@@ -358,7 +361,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       return const Center(child: Text("Cargando clientes..."));
                     },
                   ),
-                )
+                ),
               ],
             ),
           ],
@@ -566,31 +569,25 @@ Widget _buildTodayStats(int bottles, int orders) {
 }
 
 Widget _buildCustomerCard({
-  required String name,
-  required String phone,
-  required String address,
+  required CustomerDTO customer,
+  required void Function(int) onDelete,
 }) {
   return Card(
     elevation: 3,
     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     child: Padding(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          /// HEADER CLIENTE
           Row(
             children: [
-              /// AVATAR
               CircleAvatar(
                 radius: 20,
                 backgroundColor: Colors.blue.shade100,
                 child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : "?",
+                  customer.name.isNotEmpty ? customer.name[0].toUpperCase() : "?",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.blue,
@@ -600,41 +597,33 @@ Widget _buildCustomerCard({
 
               const SizedBox(width: 12),
 
-              /// NOMBRE + TELEFONO
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      customer.name,
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
 
-                    GestureDetector(
-                      onTap: () => _callCustomer(phone),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.phone,
-                            size: 16,
+                    Row(
+                      children: [
+                        const Icon(Icons.phone, size: 16, color: Colors.green),
+                        const SizedBox(width: 4),
+                        Text(
+                          customer.phone,
+                          style: const TextStyle(
+                            fontSize: 13,
                             color: Colors.green,
+                            fontWeight: FontWeight.w500,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            phone,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.green,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -642,63 +631,43 @@ Widget _buildCustomerCard({
             ],
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
-          /// DIRECCION
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(
-                Icons.location_on,
-                size: 18,
-                color: Colors.red,
+              TextButton.icon(
+                onPressed: () => _callCustomer(customer.phone),
+                icon: const Icon(Icons.phone, color: Colors.green),
+                label: const Text("Llamar"),
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  address,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.black87,
-                  ),
-                ),
+
+              TextButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.edit),
+                label: const Text("Editar"),
+              ),
+
+              TextButton.icon(
+                onPressed: () => onDelete(customer.userId!),
+                icon: const Icon(Icons.delete, color: Colors.red),
+                label: const Text("Eliminar"),
               ),
             ],
           ),
 
-          const SizedBox(height: 12),
+          const Divider(),
 
-          /// ACCIONES
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
-              /// BOTON LLAMAR
-              ElevatedButton.icon(
-                onPressed: () => _callCustomer(phone),
-                icon: const Icon(Icons.phone, size: 18),
-                label: const Text("Llamar"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+              const Icon(Icons.location_on, size: 18, color: Colors.red),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  customer.address,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
                 ),
-              ),
-
-              const SizedBox(width: 8),
-
-              /// EDITAR
-              IconButton(
-                onPressed: () {
-                  // editar cliente
-                },
-                icon: const Icon(Icons.edit),
-                tooltip: "Editar cliente",
               ),
             ],
           ),
@@ -707,7 +676,6 @@ Widget _buildCustomerCard({
     ),
   );
 }
-
 
 Future<void> _callCustomer(String phone) async {
   final Uri url = Uri(scheme: 'tel', path: phone);

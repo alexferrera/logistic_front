@@ -92,6 +92,21 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       add(LoadCustomers(event.tenantId));
     });
 
+    on<RemoveCustomerEvent>((event, emit) async {
+      emit(RemovingCustomer());
+
+      try {
+        final response = await repository.removeCustomer(event.tenantId, event.userId);
+        if (response.success) {
+          emit(CustomerRemoved(response.message));
+        } else {
+          emit(RemoveCustomerFailed(response.message));
+        }
+      } catch (e) {
+        emit(RemoveCustomerFailed(e.toString()));
+      }
+    });
+
     on<ClearDashboard>((event, emit) {
       emit(DashboardInitial());
     });

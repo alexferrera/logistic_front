@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../auth/data/models/api_response.dart';
 import '../models/customer_dto.dart';
 import '../models/dashboard_order.dart';
 import '../models/today_stats.dart';
@@ -57,5 +58,25 @@ class DashboardRemoteDatasource {
     final List data = response.data["result"];
 
     return data.map((e) => CustomerDTO.fromJson(e)).toList();
+  }
+
+  Future<ApiResponse> removeCustomer(int tenantId, int userId) async {
+    try {
+      final response = await dio.delete("/tenants/$tenantId/user/$userId");
+
+      final apiResponse = ApiResponse.fromJson(response.data);
+
+      return apiResponse;
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: e.response?.data['message'] ?? e.message,
+      );
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: e.toString(),
+      );
+    }
   }
 }
