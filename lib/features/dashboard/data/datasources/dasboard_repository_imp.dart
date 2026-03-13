@@ -1,10 +1,10 @@
-import '../../../auth/data/models/api_response.dart';
+import '../../../../common/models/api_response.dart';
 import '../models/customer_dto.dart';
 import '../models/dashboard_order.dart';
 import '../models/today_stats.dart';
 import 'dashboard_remote.dart';
 
-class DashboardRepository {
+class DashboardRepository implements DashboardRepository {
   final DashboardRemoteDatasource remote;
 
   DashboardRepository({required this.remote});
@@ -21,7 +21,7 @@ class DashboardRepository {
     return remote.getTodayStats(tenantId);
   }
 
-  Future<void> createCustomer(CustomerDTO customer) {
+  Future<ApiResponse> createCustomer(CustomerDTO customer) {
     return remote.createCustomer(customer);
   }
 
